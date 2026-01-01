@@ -1,87 +1,24 @@
 import { motion } from "framer-motion";
 import { MapPin, Bed, Bath, Square, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-import property1 from "@/assets/property-1.jpg";
-import property2 from "@/assets/property-2.jpg";
-import property3 from "@/assets/property-3.jpg";
-import property4 from "@/assets/property-4.jpg";
-import property5 from "@/assets/property-5.jpg";
-import property6 from "@/assets/property-6.jpg";
-
-const properties = [
-  {
-    id: 1,
-    title: "Sea-View Luxury Apartment",
-    location: "Bandra West, Mumbai",
-    price: "₹8.5 Cr",
-    beds: 4,
-    baths: 4,
-    sqft: "2,800",
-    image: property1,
-    featured: true,
-  },
-  {
-    id: 2,
-    title: "Premium Penthouse",
-    location: "Worli, Mumbai",
-    price: "₹12 Cr",
-    beds: 5,
-    baths: 5,
-    sqft: "4,500",
-    image: property2,
-    featured: true,
-  },
-  {
-    id: 3,
-    title: "Garden Villa",
-    location: "Koregaon Park, Pune",
-    price: "₹6.5 Cr",
-    beds: 5,
-    baths: 4,
-    sqft: "5,200",
-    image: property3,
-    featured: false,
-  },
-  {
-    id: 4,
-    title: "Modern 3BHK Flat",
-    location: "Hinjewadi, Pune",
-    price: "₹1.8 Cr",
-    beds: 3,
-    baths: 3,
-    sqft: "1,850",
-    image: property4,
-    featured: false,
-  },
-  {
-    id: 5,
-    title: "Heritage Bungalow",
-    location: "Panchgani, Maharashtra",
-    price: "₹4.2 Cr",
-    beds: 4,
-    baths: 3,
-    sqft: "3,500",
-    image: property5,
-    featured: true,
-  },
-  {
-    id: 6,
-    title: "Beachfront Apartment",
-    location: "Alibaug, Maharashtra",
-    price: "₹3.5 Cr",
-    beds: 3,
-    baths: 2,
-    sqft: "2,200",
-    image: property6,
-    featured: false,
-  },
-];
+interface Property {
+  id: string;
+  title: string;
+  location: string;
+  price: string;
+  beds: number;
+  baths: number;
+  sqft: string;
+  featured: boolean;
+  primary_image_url: string | null;
+}
 
 const areas = ["All Areas", "Mumbai", "Pune", "Nashik", "Nagpur", "Lonavala", "Alibaug"];
 
-const PropertyCard = ({ property, index }: { property: typeof properties[0]; index: number }) => {
+const PropertyCard = ({ property, index }: { property: Property; index: number }) => {
   const [isLiked, setIsLiked] = useState(false);
 
   const scrollToContact = () => {
@@ -97,12 +34,18 @@ const PropertyCard = ({ property, index }: { property: typeof properties[0]; ind
       className="glass-card-hover overflow-hidden group"
     >
       {/* Image Container */}
-      <div className="relative h-64 overflow-hidden">
-        <img
-          src={property.image}
-          alt={property.title}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+      <div className="relative h-64 overflow-hidden bg-secondary/50">
+        {property.primary_image_url ? (
+          <img
+            src={property.primary_image_url}
+            alt={property.title}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-muted-foreground">No image</span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
         
         {/* Featured Badge */}
@@ -167,6 +110,28 @@ const PropertyCard = ({ property, index }: { property: typeof properties[0]; ind
 
 const PropertiesSection = () => {
   const [selectedArea, setSelectedArea] = useState("All Areas");
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProperties(data || []);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredProperties = selectedArea === "All Areas"
     ? properties
@@ -210,11 +175,21 @@ const PropertiesSection = () => {
           </div>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-          {filteredProperties.map((property, index) => (
-            <PropertyCard key={property.id} property={property} index={index} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : filteredProperties.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No properties found in this area</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {filteredProperties.map((property, index) => (
+              <PropertyCard key={property.id} property={property} index={index} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
