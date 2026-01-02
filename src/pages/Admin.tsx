@@ -23,6 +23,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import PropertyPhotoManager from "@/components/admin/PropertyPhotoManager";
+import PropertyManager from "@/components/admin/PropertyManager";
+import UserRoleManager from "@/components/admin/UserRoleManager";
 import {
   Building2,
   LogOut,
@@ -37,6 +39,8 @@ import {
   Users,
   ImageIcon,
   ShieldAlert,
+  Home,
+  UserCog,
 } from "lucide-react";
 import { format } from "date-fns";
 import { User, Session } from "@supabase/supabase-js";
@@ -289,15 +293,25 @@ const Admin = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="inquiries" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
+              <Mail className="w-4 h-4" />
               Inquiries
+            </TabsTrigger>
+            <TabsTrigger value="properties" className="flex items-center gap-2">
+              <Home className="w-4 h-4" />
+              Properties
             </TabsTrigger>
             <TabsTrigger value="photos" className="flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
-              Property Photos
+              Photos
             </TabsTrigger>
+            {role === "admin" && (
+              <TabsTrigger value="users" className="flex items-center gap-2">
+                <UserCog className="w-4 h-4" />
+                Users
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Inquiries Tab */}
@@ -515,10 +529,22 @@ const Admin = () => {
             </p>
           </TabsContent>
 
+          {/* Properties Tab */}
+          <TabsContent value="properties">
+            <PropertyManager />
+          </TabsContent>
+
           {/* Property Photos Tab */}
           <TabsContent value="photos">
             <PropertyPhotoManager />
           </TabsContent>
+
+          {/* User Management Tab - Admin Only */}
+          {role === "admin" && (
+            <TabsContent value="users">
+              <UserRoleManager currentUserId={user?.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>
