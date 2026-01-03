@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RefreshCw, Users, Shield, UserCog, Eye, Mail, UserPlus } from "lucide-react";
+import { RefreshCw, Users, Shield, UserCog, Eye, Mail, UserPlus, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 
@@ -111,6 +111,42 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
     } catch (error: any) {
       toast({
         title: "Error updating role",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRemoveAccess = async (profileId: string, userId: string, email: string | null) => {
+    if (userId === currentUserId) {
+      toast({
+        title: "Cannot remove your own access",
+        description: "You cannot remove your own access. Ask another admin.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUpdatingId(profileId);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", profileId);
+
+      if (error) throw error;
+
+      setProfiles((prev) => prev.filter((p) => p.id !== profileId));
+
+      toast({
+        title: "Access removed",
+        description: `${email || "User"}'s admin access has been revoked`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error removing access",
         description: error.message,
         variant: "destructive",
       });
@@ -319,6 +355,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
                   <TableHead>Current Role</TableHead>
                   <TableHead>Change Role</TableHead>
                   <TableHead>Joined</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -370,6 +407,17 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {format(new Date(profile.created_at), "dd MMM yyyy")}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRemoveAccess(profile.id, profile.user_id, profile.email)}
+                        disabled={updatingId === profile.id || profile.user_id === currentUserId}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
