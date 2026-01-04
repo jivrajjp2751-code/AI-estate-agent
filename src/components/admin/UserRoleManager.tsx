@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { RefreshCw, Users, Shield, UserCog, Eye, Mail, UserPlus, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -52,6 +63,15 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "editor" | "viewer">("editor");
   const [isInviting, setIsInviting] = useState(false);
+
+  // Confirmation dialog state
+  const [confirmRemove, setConfirmRemove] = useState<{ profileId: string; userId: string; email: string | null } | null>(null);
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkRole, setBulkRole] = useState<"admin" | "editor" | "viewer">("editor");
+  const [isBulkConfirmOpen, setIsBulkConfirmOpen] = useState(false);
+  const [bulkAction, setBulkAction] = useState<"remove" | "role" | null>(null);
 
   const fetchProfiles = async () => {
     setIsLoading(true);
@@ -119,15 +139,9 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
     }
   };
 
-  const handleRemoveAccess = async (profileId: string, userId: string, email: string | null) => {
-    if (userId === currentUserId) {
-      toast({
-        title: "Cannot remove your own access",
-        description: "You cannot remove your own access. Ask another admin.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const confirmAndRemoveAccess = async () => {
+    if (!confirmRemove) return;
+    const { profileId, userId, email } = confirmRemove;
 
     setUpdatingId(profileId);
     try {
@@ -139,6 +153,11 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
       if (error) throw error;
 
       setProfiles((prev) => prev.filter((p) => p.id !== profileId));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(profileId);
+        return next;
+      });
 
       toast({
         title: "Access removed",
@@ -152,6 +171,119 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
       });
     } finally {
       setUpdatingId(null);
+      setConfirmRemove(null);
+    }
+  };
+
+  const handleRemoveClick = (profileId: string, userId: string, email: string | null) => {
+    if (userId === currentUserId) {
+      toast({
+        title: "Cannot remove your own access",
+        description: "You cannot remove your own access. Ask another admin.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setConfirmRemove({ profileId, userId, email });
+  };
+
+  // Bulk selection helpers
+  const selectableProfiles = profiles.filter((p) => p.user_id !== currentUserId);
+  const allSelected = selectableProfiles.length > 0 && selectableProfiles.every((p) => selectedIds.has(p.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableProfiles.map((p) => p.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkRemove = async () => {
+    const idsToRemove = Array.from(selectedIds);
+    if (idsToRemove.length === 0) return;
+
+    setUpdatingId("bulk");
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .in("id", idsToRemove);
+
+      if (error) throw error;
+
+      setProfiles((prev) => prev.filter((p) => !selectedIds.has(p.id)));
+      setSelectedIds(new Set());
+
+      toast({
+        title: "Access removed",
+        description: `${idsToRemove.length} user(s) access has been revoked`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error removing access",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingId(null);
+      setIsBulkConfirmOpen(false);
+      setBulkAction(null);
+    }
+  };
+
+  const handleBulkRoleChange = async () => {
+    const idsToUpdate = Array.from(selectedIds);
+    if (idsToUpdate.length === 0) return;
+
+    setUpdatingId("bulk");
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: bulkRole })
+        .in("id", idsToUpdate);
+
+      if (error) throw error;
+
+      setProfiles((prev) =>
+        prev.map((p) => (selectedIds.has(p.id) ? { ...p, role: bulkRole } : p))
+      );
+      setSelectedIds(new Set());
+
+      toast({
+        title: "Roles updated",
+        description: `${idsToUpdate.length} user(s) role changed to ${bulkRole}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating roles",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingId(null);
+      setIsBulkConfirmOpen(false);
+      setBulkAction(null);
+    }
+  };
+
+  const executeBulkAction = () => {
+    if (bulkAction === "remove") {
+      handleBulkRemove();
+    } else if (bulkAction === "role") {
+      handleBulkRoleChange();
     }
   };
 
@@ -234,6 +366,54 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Remove Confirmation Dialog */}
+      <AlertDialog open={!!confirmRemove} onOpenChange={(open) => !open && setConfirmRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove User Access</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove access for <strong>{confirmRemove?.email || "this user"}</strong>? 
+              They will no longer be able to access the admin dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmAndRemoveAccess}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Action Confirmation Dialog */}
+      <AlertDialog open={isBulkConfirmOpen} onOpenChange={setIsBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulkAction === "remove" ? "Remove Access for Multiple Users" : "Change Role for Multiple Users"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulkAction === "remove" 
+                ? `Are you sure you want to remove access for ${selectedIds.size} user(s)? They will no longer be able to access the admin dashboard.`
+                : `Are you sure you want to change the role to "${bulkRole}" for ${selectedIds.size} user(s)?`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBulkAction(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeBulkAction}
+              className={bulkAction === "remove" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {bulkAction === "remove" ? "Remove All" : "Change Roles"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <Users className="w-5 h-5" />
@@ -310,6 +490,54 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card p-4 flex items-center justify-between flex-wrap gap-3"
+        >
+          <span className="text-sm font-medium">{selectedIds.size} user(s) selected</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Select value={bulkRole} onValueChange={(v) => setBulkRole(v as any)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="editor">Editor</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setBulkAction("role");
+                  setIsBulkConfirmOpen(true);
+                }}
+                disabled={updatingId === "bulk"}
+              >
+                Change Role
+              </Button>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setBulkAction("remove");
+                setIsBulkConfirmOpen(true);
+              }}
+              disabled={updatingId === "bulk"}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              Remove Selected
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -351,6 +579,13 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all users"
+                    />
+                  </TableHead>
                   <TableHead>User</TableHead>
                   <TableHead>Current Role</TableHead>
                   <TableHead>Change Role</TableHead>
@@ -361,6 +596,14 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
               <TableBody>
                 {profiles.map((profile) => (
                   <TableRow key={profile.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(profile.id)}
+                        onCheckedChange={() => toggleSelect(profile.id)}
+                        disabled={profile.user_id === currentUserId}
+                        aria-label={`Select ${profile.email || "user"}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Mail className="w-4 h-4 text-primary" />
@@ -413,7 +656,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleRemoveAccess(profile.id, profile.user_id, profile.email)}
+                        onClick={() => handleRemoveClick(profile.id, profile.user_id, profile.email)}
                         disabled={updatingId === profile.id || profile.user_id === currentUserId}
                       >
                         <Trash2 className="w-4 h-4" />

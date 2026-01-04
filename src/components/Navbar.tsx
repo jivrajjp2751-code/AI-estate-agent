@@ -66,7 +66,7 @@ const Navbar = () => {
             <div className="hidden md:block">
               <Button variant="hero" size="default" onClick={scrollToContact}>
                 <Phone className="w-4 h-4" />
-                Request Call
+                Schedule a Call
               </Button>
             </div>
 
@@ -108,7 +108,7 @@ const Navbar = () => {
                 ))}
                 <Button variant="hero" size="lg" onClick={scrollToContact} className="mt-4">
                   <Phone className="w-4 h-4" />
-                  Request Call
+                  Schedule a Call
                 </Button>
               </div>
             </div>

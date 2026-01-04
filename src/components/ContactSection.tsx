@@ -252,7 +252,7 @@ const ContactSection = () => {
             className="lg:col-span-3"
           >
             <form onSubmit={handleSubmit} className="glass-card p-8 space-y-6">
-              <h3 className="font-display text-2xl font-semibold mb-6">Request a Call</h3>
+              <h3 className="font-display text-2xl font-semibold mb-6">Schedule a Call</h3>
 
               {/* Personal Information */}
               <div className="grid sm:grid-cols-2 gap-4">

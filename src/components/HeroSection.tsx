@@ -80,7 +80,7 @@ const HeroSection = () => {
               className="group"
             >
               <Phone className="w-5 h-5 transition-transform group-hover:rotate-12" />
-              Request a Call
+              Schedule a Call
             </Button>
             <Button
               variant="glass"
