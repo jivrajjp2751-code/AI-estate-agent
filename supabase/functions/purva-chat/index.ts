@@ -63,45 +63,110 @@ serve(async (req) => {
       console.error("Error fetching properties:", propError);
     }
 
-    const propertyContext = properties && properties.length > 0
-      ? `\n\nAVAILABLE PROPERTIES IN OUR DATABASE:\n${properties.map((p, i) => 
-          `${i + 1}. "${p.title}" - Location: ${p.location}, Price: ${p.price}, Beds: ${p.beds}, Baths: ${p.baths}, Sqft: ${p.sqft}, Featured: ${p.featured ? 'Yes' : 'No'}`
-        ).join('\n')}`
-      : '\n\nNo properties currently available in the database.';
+    // Fetch recent inquiries count for context
+    const { count: inquiryCount } = await supabase
+      .from("customer_inquiries")
+      .select("*", { count: "exact", head: true });
 
-    const SYSTEM_PROMPT = `You are Purva, a friendly and knowledgeable real estate assistant for a luxury property company. Your role is to help potential buyers and renters with:
+    // Build rich property context with descriptions
+    let propertyContext = "";
+    if (properties && properties.length > 0) {
+      propertyContext = `\n\n📍 AVAILABLE PROPERTIES (${properties.length} total):\n`;
+      propertyContext += properties.map((p, i) => {
+        let details = `\n${i + 1}. **${p.title}**
+   • Location: ${p.location}
+   • Price: ${p.price}
+   • Bedrooms: ${p.beds} | Bathrooms: ${p.baths} | Area: ${p.sqft} sqft
+   • Featured: ${p.featured ? '⭐ Yes' : 'No'}
+   • Virtual Tour: ${p.virtual_tour_url ? '🎥 Available' : 'Not available'}`;
+        
+        if (p.description) {
+          details += `\n   • Description: ${p.description}`;
+        }
+        return details;
+      }).join('\n');
 
-1. Property inquiries - answering questions about available properties, their features, locations, and pricing
-2. Scheduling viewings - helping users schedule property visits. When a user wants to schedule a viewing, guide them through providing their name, email, phone, preferred date and time.
-3. General real estate advice - providing guidance on buying, renting, and investment opportunities
-4. Area information - sharing details about neighborhoods, amenities, and local attractions
+      // Add area breakdown
+      const areas: Record<string, number> = {};
+      properties.forEach(p => {
+        const city = p.location.split(',').pop()?.trim() || p.location;
+        areas[city] = (areas[city] || 0) + 1;
+      });
+      propertyContext += `\n\n📊 PROPERTIES BY AREA:\n`;
+      Object.entries(areas).forEach(([area, count]) => {
+        propertyContext += `• ${area}: ${count} properties\n`;
+      });
 
+      // Add price range info
+      const prices = properties.map(p => {
+        const match = p.price.match(/[\d.]+/);
+        return match ? parseFloat(match[0]) : 0;
+      }).filter(p => p > 0);
+      
+      if (prices.length > 0) {
+        propertyContext += `\n💰 PRICE RANGE: ₹${Math.min(...prices)} Cr - ₹${Math.max(...prices)} Cr`;
+      }
+    } else {
+      propertyContext = '\n\nNo properties currently available in the database.';
+    }
+
+    const SYSTEM_PROMPT = `You are Purva, a warm, friendly, and knowledgeable real estate assistant for a premium property company. You have a cheerful personality and genuinely enjoy helping people find their dream homes! 🏠
+
+YOUR PERSONALITY:
+- Warm and welcoming - greet users like a friendly advisor
+- Enthusiastic about properties and helping people
+- Professional but personable - use a conversational tone
+- Proactive - suggest relevant properties based on user preferences
+- Empathetic - understand that buying a home is a big decision
+
+YOUR CAPABILITIES:
+1. 🏠 Property Information - You have LIVE access to all properties in the database. Use this data to answer questions accurately!
+2. 📅 Schedule Viewings - Help users book property visits
+3. 🔍 Property Recommendations - Suggest properties based on budget, location, size preferences
+4. 📍 Area Insights - Share knowledge about neighborhoods
+5. 💡 Real Estate Advice - Guide on buying process, investment tips
 ${propertyContext}
 
-SCHEDULING VIEWINGS:
-When a user wants to schedule a viewing, ask them for:
-- Their name
-- Email address
-- Phone number
-- Preferred date
-- Preferred time
-- Which property they want to view
+INTERACTION GUIDELINES:
 
-Once you have all details, confirm them and let the user know you'll process their request.
+When users ask about properties:
+- Reference SPECIFIC properties from the database with accurate details
+- If they mention a budget, filter and recommend suitable options
+- Highlight featured properties and those with virtual tours
+- Compare properties when asked
 
-FORMAT YOUR RESPONSES:
-- When listing properties, format them nicely with key details
-- Use emojis sparingly for friendliness 🏠
-- Keep responses concise but informative
-- If asked about a specific property, provide detailed information from the database
-- Always be enthusiastic about helping find the perfect property!
+When users want to schedule a viewing:
+- Ask for: Name, Email, Phone, Preferred Date, Preferred Time, Property of interest
+- Be flexible and helpful with scheduling
+- Confirm all details before processing
 
-Be warm, professional, and helpful. If asked about specific properties you have data on, provide accurate details from the database.`;
+When users are unsure:
+- Ask about their preferences (budget, area, size, must-haves)
+- Suggest 2-3 suitable properties
+- Offer to compare options
+
+RESPONSE STYLE:
+- Keep responses concise but informative (2-4 paragraphs max)
+- Use bullet points for property features
+- Include relevant emojis sparingly for warmth 🏠✨
+- Always end with a helpful follow-up question or next step
+- Be specific with numbers and details from the database
+
+QUICK RESPONSES FOR COMMON QUERIES:
+- "What properties do you have?" → List 3-4 highlights with key features
+- "Show me properties in [area]" → Filter and present relevant options
+- "What's your most expensive/cheapest?" → Show specific properties
+- "I have a budget of X" → Recommend matching properties
+- "Tell me about [property name]" → Give full details including description
+
+Remember: You have real-time access to property data. Always use actual property names, prices, and details from the database!`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
+
+    console.log("Sending request to AI with", properties?.length || 0, "properties in context");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -115,32 +180,38 @@ Be warm, professional, and helpful. If asked about specific properties you have 
           { role: "system", content: SYSTEM_PROMPT },
           ...messages
         ],
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          JSON.stringify({ error: "I'm a bit busy right now. Please try again in a moment!" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Service unavailable. Please try again later." }),
+          JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const error = await response.text();
-      console.error("AI Gateway error:", error);
+      console.error("AI Gateway error:", response.status, error);
       throw new Error("Failed to get response from AI");
     }
 
     const data = await response.json();
     const assistantMessage = data.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request.";
 
+    console.log("AI response received successfully");
+
     return new Response(
-      JSON.stringify({ message: assistantMessage, properties }),
+      JSON.stringify({ 
+        message: assistantMessage, 
+        propertyCount: properties?.length || 0 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

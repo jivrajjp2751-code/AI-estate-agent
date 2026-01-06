@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -30,8 +31,16 @@ import {
   Bed,
   Bath,
   Square,
+  Video,
+  FileText,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Property {
   id: string;
@@ -43,6 +52,8 @@ interface Property {
   sqft: string;
   featured: boolean;
   primary_image_url: string | null;
+  virtual_tour_url: string | null;
+  description: string | null;
   created_at: string;
 }
 
@@ -60,6 +71,8 @@ const PropertyManager = () => {
     baths: 2,
     sqft: "",
     featured: false,
+    virtual_tour_url: "",
+    description: "",
   });
 
   const fetchProperties = async () => {
@@ -96,6 +109,8 @@ const PropertyManager = () => {
       baths: 2,
       sqft: "",
       featured: false,
+      virtual_tour_url: "",
+      description: "",
     });
     setEditingProperty(null);
   };
@@ -111,6 +126,8 @@ const PropertyManager = () => {
         baths: property.baths,
         sqft: property.sqft,
         featured: property.featured,
+        virtual_tour_url: property.virtual_tour_url || "",
+        description: property.description || "",
       });
     } else {
       resetForm();
@@ -121,17 +138,23 @@ const PropertyManager = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const submitData = {
+      ...formData,
+      virtual_tour_url: formData.virtual_tour_url || null,
+      description: formData.description || null,
+    };
+
     try {
       if (editingProperty) {
         const { error } = await supabase
           .from("properties")
-          .update(formData)
+          .update(submitData)
           .eq("id", editingProperty.id);
 
         if (error) throw error;
         toast({ title: "Property updated", description: "Changes saved successfully" });
       } else {
-        const { error } = await supabase.from("properties").insert(formData);
+        const { error } = await supabase.from("properties").insert(submitData);
 
         if (error) throw error;
         toast({ title: "Property added", description: "New property created successfully" });
@@ -186,7 +209,7 @@ const PropertyManager = () => {
                 Add Property
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingProperty ? "Edit Property" : "Add New Property"}
@@ -261,6 +284,34 @@ const PropertyManager = () => {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="virtual_tour_url">Virtual Tour URL (Optional)</Label>
+                  <Input
+                    id="virtual_tour_url"
+                    value={formData.virtual_tour_url}
+                    onChange={(e) => setFormData({ ...formData, virtual_tour_url: e.target.value })}
+                    placeholder="https://youtube.com/watch?v=... or video URL"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Supports YouTube, Vimeo, or direct video URLs
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Describe the property features, amenities, nearby attractions..."
+                    rows={4}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This description will be shown in property details and used by Purva AI assistant
+                  </p>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <Switch
                     id="featured"
@@ -309,6 +360,7 @@ const PropertyManager = () => {
                   <TableHead>Location</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Details</TableHead>
+                  <TableHead>Extras</TableHead>
                   <TableHead>Featured</TableHead>
                   <TableHead className="w-24"></TableHead>
                 </TableRow>
@@ -356,6 +408,37 @@ const PropertyManager = () => {
                           {property.sqft}
                         </span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <TooltipProvider>
+                        <div className="flex items-center gap-2">
+                          {property.virtual_tour_url && (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center">
+                                  <Video className="w-3 h-3 text-primary" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>Virtual Tour Available</TooltipContent>
+                            </Tooltip>
+                          )}
+                          {property.description && (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center">
+                                  <FileText className="w-3 h-3 text-primary" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs">{property.description.slice(0, 100)}...</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {!property.virtual_tour_url && !property.description && (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </div>
+                      </TooltipProvider>
                     </TableCell>
                     <TableCell>
                       {property.featured ? (
