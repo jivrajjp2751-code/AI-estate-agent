@@ -1,7 +1,7 @@
 project_id = "qtyflfqbjftodchyyplz"
 
 [functions.admin-grant-role-by-email]
-verify_jwt = true
+verify_jwt = false
 
 [functions.purva-chat]
 verify_jwt = false
