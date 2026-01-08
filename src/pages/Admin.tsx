@@ -25,6 +25,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import PropertyPhotoManager from "@/components/admin/PropertyPhotoManager";
 import PropertyManager from "@/components/admin/PropertyManager";
 import UserRoleManager from "@/components/admin/UserRoleManager";
+import AuditLogViewer from "@/components/admin/AuditLogViewer";
 import {
   Building2,
   LogOut,
@@ -41,6 +42,7 @@ import {
   ShieldAlert,
   Home,
   UserCog,
+  History,
 } from "lucide-react";
 import { format } from "date-fns";
 import { User, Session } from "@supabase/supabase-js";
@@ -323,7 +325,7 @@ const Admin = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5">
             <TabsTrigger value="inquiries" className="flex items-center gap-2">
               <Mail className="w-4 h-4" />
               Inquiries
@@ -340,6 +342,12 @@ const Admin = () => {
               <TabsTrigger value="users" className="flex items-center gap-2">
                 <UserCog className="w-4 h-4" />
                 Users
+              </TabsTrigger>
+            )}
+            {role === "admin" && (
+              <TabsTrigger value="audit" className="flex items-center gap-2">
+                <History className="w-4 h-4" />
+                Audit Logs
               </TabsTrigger>
             )}
           </TabsList>
@@ -573,6 +581,13 @@ const Admin = () => {
           {role === "admin" && (
             <TabsContent value="users">
               <UserRoleManager currentUserId={user?.id} />
+            </TabsContent>
+          )}
+
+          {/* Audit Logs Tab - Admin Only */}
+          {role === "admin" && (
+            <TabsContent value="audit">
+              <AuditLogViewer />
             </TabsContent>
           )}
         </Tabs>

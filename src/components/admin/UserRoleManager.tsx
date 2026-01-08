@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuditLog } from "@/hooks/useAuditLog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -56,6 +57,7 @@ interface UserRoleManagerProps {
 
 const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
   const { toast } = useToast();
+  const { logAction } = useAuditLog();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -109,6 +111,9 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
       return;
     }
 
+    const profile = profiles.find((p) => p.id === profileId);
+    const oldRole = profile?.role;
+
     setUpdatingId(profileId);
     try {
       const { error } = await supabase
@@ -117,6 +122,15 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         .eq("id", profileId);
 
       if (error) throw error;
+
+      // Log the role change
+      await logAction({
+        action: "role_change",
+        target_type: "user",
+        target_id: userId,
+        target_email: profile?.email || undefined,
+        details: { old_role: oldRole, new_role: newRole },
+      });
 
       setProfiles((prev) =>
         prev.map((p) =>
@@ -142,6 +156,7 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
   const confirmAndRemoveAccess = async () => {
     if (!confirmRemove) return;
     const { profileId, userId, email } = confirmRemove;
+    const profile = profiles.find((p) => p.id === profileId);
 
     setUpdatingId(profileId);
     try {
@@ -151,6 +166,15 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         .eq("id", profileId);
 
       if (error) throw error;
+
+      // Log the access removal
+      await logAction({
+        action: "access_removed",
+        target_type: "user",
+        target_id: userId,
+        target_email: email || undefined,
+        details: { previous_role: profile?.role },
+      });
 
       setProfiles((prev) => prev.filter((p) => p.id !== profileId));
       setSelectedIds((prev) => {
@@ -215,6 +239,8 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
     const idsToRemove = Array.from(selectedIds);
     if (idsToRemove.length === 0) return;
 
+    const removedProfiles = profiles.filter((p) => selectedIds.has(p.id));
+
     setUpdatingId("bulk");
     try {
       const { error } = await supabase
@@ -223,6 +249,16 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         .in("id", idsToRemove);
 
       if (error) throw error;
+
+      // Log bulk access removal
+      await logAction({
+        action: "bulk_access_removed",
+        target_type: "users",
+        details: { 
+          count: idsToRemove.length,
+          emails: removedProfiles.map((p) => p.email).filter(Boolean),
+        },
+      });
 
       setProfiles((prev) => prev.filter((p) => !selectedIds.has(p.id)));
       setSelectedIds(new Set());
@@ -248,6 +284,8 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
     const idsToUpdate = Array.from(selectedIds);
     if (idsToUpdate.length === 0) return;
 
+    const updatedProfiles = profiles.filter((p) => selectedIds.has(p.id));
+
     setUpdatingId("bulk");
     try {
       const { error } = await supabase
@@ -256,6 +294,17 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         .in("id", idsToUpdate);
 
       if (error) throw error;
+
+      // Log bulk role change
+      await logAction({
+        action: "bulk_role_change",
+        target_type: "users",
+        details: { 
+          count: idsToUpdate.length,
+          new_role: bulkRole,
+          emails: updatedProfiles.map((p) => p.email).filter(Boolean),
+        },
+      });
 
       setProfiles((prev) =>
         prev.map((p) => (selectedIds.has(p.id) ? { ...p, role: bulkRole } : p))
@@ -316,6 +365,15 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
       }
 
       const profile = (data as any)?.profile as Profile | undefined;
+
+      // Log access granted
+      await logAction({
+        action: "access_granted",
+        target_type: "user",
+        target_id: profile?.user_id,
+        target_email: normalizedEmail,
+        details: { role: inviteRole },
+      });
 
       toast({
         title: "Access granted",
