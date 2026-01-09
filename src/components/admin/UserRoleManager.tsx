@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useAdminNotify } from "@/hooks/useAdminNotify";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -58,6 +59,7 @@ interface UserRoleManagerProps {
 const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
   const { toast } = useToast();
   const { logAction } = useAuditLog();
+  const { sendNotification } = useAdminNotify();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -132,6 +134,13 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         details: { old_role: oldRole, new_role: newRole },
       });
 
+      // Send email notification
+      sendNotification({
+        action: "role_change",
+        targetEmail: profile?.email || undefined,
+        details: { old_role: oldRole, new_role: newRole },
+      });
+
       setProfiles((prev) =>
         prev.map((p) =>
           p.id === profileId ? { ...p, role: newRole as "admin" | "editor" | "viewer" } : p
@@ -173,6 +182,13 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         target_type: "user",
         target_id: userId,
         target_email: email || undefined,
+        details: { previous_role: profile?.role },
+      });
+
+      // Send email notification
+      sendNotification({
+        action: "access_removed",
+        targetEmail: email || undefined,
         details: { previous_role: profile?.role },
       });
 
@@ -260,6 +276,15 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         },
       });
 
+      // Send email notification
+      sendNotification({
+        action: "bulk_access_removed",
+        details: { 
+          count: idsToRemove.length,
+          emails: removedProfiles.map((p) => p.email).filter(Boolean),
+        },
+      });
+
       setProfiles((prev) => prev.filter((p) => !selectedIds.has(p.id)));
       setSelectedIds(new Set());
 
@@ -299,6 +324,16 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
       await logAction({
         action: "bulk_role_change",
         target_type: "users",
+        details: { 
+          count: idsToUpdate.length,
+          new_role: bulkRole,
+          emails: updatedProfiles.map((p) => p.email).filter(Boolean),
+        },
+      });
+
+      // Send email notification
+      sendNotification({
+        action: "bulk_role_change",
         details: { 
           count: idsToUpdate.length,
           new_role: bulkRole,
@@ -372,6 +407,13 @@ const UserRoleManager = ({ currentUserId }: UserRoleManagerProps) => {
         target_type: "user",
         target_id: profile?.user_id,
         target_email: normalizedEmail,
+        details: { role: inviteRole },
+      });
+
+      // Send email notification
+      sendNotification({
+        action: "access_granted",
+        targetEmail: normalizedEmail,
         details: { role: inviteRole },
       });
 
