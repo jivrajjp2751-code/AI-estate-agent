@@ -65,7 +65,10 @@ const PropertyCard = ({
       </div>
 
       {/* Image Container */}
-      <div className="relative h-64 overflow-hidden bg-secondary/50">
+      <div 
+        className="relative h-64 overflow-hidden bg-secondary/50 cursor-pointer"
+        onClick={() => onViewDetails(property)}
+      >
         {property.primary_image_url ? (
           <img
             src={property.primary_image_url}
@@ -88,7 +91,10 @@ const PropertyCard = ({
 
         {/* Like Button */}
         <button
-          onClick={() => setIsLiked(!isLiked)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsLiked(!isLiked);
+          }}
           className="absolute top-4 right-4 w-10 h-10 rounded-full bg-background/50 backdrop-blur-sm flex items-center justify-center transition-all duration-300 hover:bg-background/70"
         >
           <Heart
@@ -106,7 +112,10 @@ const PropertyCard = ({
 
       {/* Content */}
       <div className="p-6">
-        <h3 className="font-display text-xl font-semibold mb-2 group-hover:text-primary transition-colors">
+        <h3 
+          className="font-display text-xl font-semibold mb-2 group-hover:text-primary transition-colors cursor-pointer hover:underline"
+          onClick={() => onViewDetails(property)}
+        >
           {property.title}
         </h3>
         
