@@ -50,11 +50,13 @@ const ContactSection = () => {
     preferredArea: "",
     customArea: "",
     budget: "",
+    customBudget: "",
     preferredTime: "",
     appointmentDate: "",
     message: "",
   });
   const [showCustomArea, setShowCustomArea] = useState(false);
+  const [showCustomBudget, setShowCustomBudget] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -69,6 +71,14 @@ const ContactSection = () => {
       } else {
         setShowCustomArea(false);
         setFormData((prev) => ({ ...prev, preferredArea: value, customArea: "" }));
+      }
+    } else if (name === "budget") {
+      if (value === "other") {
+        setShowCustomBudget(true);
+        setFormData((prev) => ({ ...prev, budget: "" }));
+      } else {
+        setShowCustomBudget(false);
+        setFormData((prev) => ({ ...prev, budget: value, customBudget: "" }));
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -101,12 +111,17 @@ const ContactSection = () => {
         ? formData.customArea.trim() 
         : validatedData.preferredArea;
 
+      // Use custom budget if provided, otherwise use selected budget
+      const finalBudget = showCustomBudget && formData.customBudget.trim()
+        ? formData.customBudget.trim()
+        : validatedData.budget;
+
       const { error } = await supabase.from("customer_inquiries").insert({
         name: validatedData.name,
         email: validatedData.email,
         phone: validatedData.phone,
         preferred_area: finalArea || null,
-        budget: validatedData.budget || null,
+        budget: finalBudget || null,
         preferred_time: validatedData.preferredTime || null,
         appointment_date: validatedData.appointmentDate || null,
         message: validatedData.message?.trim() || null,
@@ -134,11 +149,13 @@ const ContactSection = () => {
         preferredArea: "",
         customArea: "",
         budget: "",
+        customBudget: "",
         preferredTime: "",
         appointmentDate: "",
         message: "",
       });
       setShowCustomArea(false);
+      setShowCustomBudget(false);
     } catch (err) {
       // Don't log unexpected errors to console - may contain sensitive info
       toast({
@@ -380,21 +397,48 @@ const ContactSection = () => {
                     <DollarSign className="w-4 h-4 text-primary" />
                     Budget Range
                   </Label>
-                  <Select
-                    value={formData.budget}
-                    onValueChange={(value) => handleSelectChange("budget", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select budget" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {budgetRanges.map((range) => (
-                        <SelectItem key={range} value={range}>
-                          {range}
+                  {showCustomBudget ? (
+                    <div className="flex gap-2">
+                      <Input
+                        name="customBudget"
+                        placeholder="Enter your budget (e.g., ₹2.5 Cr)"
+                        value={formData.customBudget}
+                        onChange={handleInputChange}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setShowCustomBudget(false);
+                          setFormData((prev) => ({ ...prev, customBudget: "" }));
+                        }}
+                        className="shrink-0"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.budget}
+                      onValueChange={(value) => handleSelectChange("budget", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select budget" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {budgetRanges.map((range) => (
+                          <SelectItem key={range} value={range}>
+                            {range}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="other" className="text-primary font-medium">
+                          + Other (Enter custom budget)
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="space-y-2">

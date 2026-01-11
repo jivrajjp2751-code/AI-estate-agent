@@ -46,6 +46,7 @@ import {
   UserCog,
   History,
   Settings,
+  PhoneCall,
 } from "lucide-react";
 import { format } from "date-fns";
 import { User, Session } from "@supabase/supabase-js";
@@ -262,6 +263,52 @@ const Admin = () => {
     link.download = `inquiries_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const [callingInquiryId, setCallingInquiryId] = useState<string | null>(null);
+
+  const handleInitiateCall = async (inquiry: Inquiry) => {
+    try {
+      setCallingInquiryId(inquiry.id);
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/outbound-call`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            inquiryId: inquiry.id,
+            phoneNumber: inquiry.phone,
+            customerName: inquiry.name,
+            preferredArea: inquiry.preferred_area,
+            budget: inquiry.budget,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to initiate call");
+      }
+
+      toast({
+        title: "Call Initiated",
+        description: `AI agent is now calling ${inquiry.name}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Call Failed",
+        description: error.message || "Could not initiate the call",
+        variant: "destructive",
+      });
+    } finally {
+      setCallingInquiryId(null);
+    }
   };
 
   const handleLogout = async () => {
@@ -481,7 +528,7 @@ const Admin = () => {
                       <TableHead>Preferred Time</TableHead>
                       <TableHead>Visit Date</TableHead>
                       <TableHead>Submitted</TableHead>
-                      <TableHead className="w-12"></TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -557,14 +604,31 @@ const Admin = () => {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(inquiry.id)}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleInitiateCall(inquiry)}
+                                disabled={callingInquiryId === inquiry.id}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                                title="Call customer with AI agent"
+                              >
+                                {callingInquiryId === inquiry.id ? (
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <PhoneCall className="w-4 h-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(inquiry.id)}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete inquiry"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
