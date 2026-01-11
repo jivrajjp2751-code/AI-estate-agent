@@ -41,14 +41,41 @@ serve(async (req) => {
     }
 
     // Build a personalized first message based on customer info
-    let firstMessage = `Hello ${customerName || "there"}! This is a call from Purva Real Estate. `;
+    let firstMessage = `Hello ${customerName || "there"}! I'm calling from Purva Real Estate. `;
     if (preferredArea) {
-      firstMessage += `I understand you're interested in properties in ${preferredArea}. `;
+      firstMessage += `I see you're interested in properties in ${preferredArea}. `;
     }
     if (budget) {
-      firstMessage += `With a budget around ${budget}. `;
+      firstMessage += `With a budget of ${budget}. `;
     }
-    firstMessage += "I'd love to help you find your perfect property. Do you have a few minutes to discuss your requirements?";
+    firstMessage += "I'm here to help you find your dream property. Do you have a few minutes to discuss what you're looking for?";
+
+    // System prompt override for the agent
+    const agentPromptOverride = `You are a friendly and professional real estate consultant from Purva Real Estate, a premium real estate company in India. 
+
+Your role:
+- Help customers find their perfect property
+- Answer questions about available properties in areas like Mumbai (Bandra, Worli, Andheri, Powai), Pune (Koregaon Park, Hinjewadi, Kothrud), Nashik, Nagpur, Lonavala, Alibaug, and Panchgani
+- Discuss budget options ranging from under ₹50 Lakh to above ₹10 Crore
+- Schedule property visits and follow-up calls
+- Be warm, helpful, and knowledgeable about Indian real estate
+
+Customer context:
+- Name: ${customerName || "Customer"}
+- Preferred Area: ${preferredArea || "Not specified"}
+- Budget: ${budget || "Not specified"}
+
+Always:
+- Introduce yourself as calling from Purva Real Estate
+- Be respectful of the customer's time
+- Offer to schedule a property viewing
+- Provide our website for more information
+- End calls politely if the customer is busy
+
+Never:
+- Be pushy or aggressive
+- Make promises you can't keep
+- Share pricing without confirmation`;
 
     console.log(`Initiating outbound call to ${formattedPhone}`);
 
@@ -69,9 +96,17 @@ serve(async (req) => {
               customer_name: customerName || "Customer",
               preferred_area: preferredArea || "any area",
               budget: budget || "flexible",
+              company_name: "Purva Real Estate",
+            },
+            conversation_config_override: {
+              agent: {
+                prompt: {
+                  prompt: agentPromptOverride,
+                },
+                first_message: firstMessage,
+              },
             },
           },
-          first_message: firstMessage,
         }),
       }
     );
