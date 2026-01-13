@@ -116,6 +116,62 @@ export type Database = {
         }
         Relationships: []
       }
+      call_appointments: {
+        Row: {
+          appointment_date: string | null
+          appointment_time: string | null
+          call_id: string | null
+          created_at: string
+          customer_name: string
+          customer_phone: string
+          id: string
+          inquiry_id: string | null
+          language: string | null
+          notes: string | null
+          property_location: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_date?: string | null
+          appointment_time?: string | null
+          call_id?: string | null
+          created_at?: string
+          customer_name: string
+          customer_phone: string
+          id?: string
+          inquiry_id?: string | null
+          language?: string | null
+          notes?: string | null
+          property_location?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string | null
+          appointment_time?: string | null
+          call_id?: string | null
+          created_at?: string
+          customer_name?: string
+          customer_phone?: string
+          id?: string
+          inquiry_id?: string | null
+          language?: string | null
+          notes?: string | null
+          property_location?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_appointments_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "customer_inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_inquiries: {
         Row: {
           appointment_date: string | null

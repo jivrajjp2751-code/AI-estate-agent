@@ -28,6 +28,7 @@ import UserRoleManager from "@/components/admin/UserRoleManager";
 import AuditLogViewer from "@/components/admin/AuditLogViewer";
 import NotificationBell from "@/components/admin/NotificationBell";
 import NotificationPreferences from "@/components/admin/NotificationPreferences";
+import CallAppointmentsTab from "@/components/admin/CallAppointmentsTab";
 import {
   Building2,
   LogOut,
@@ -47,9 +48,13 @@ import {
   History,
   Settings,
   PhoneCall,
+  CalendarCheck,
+  Languages,
 } from "lucide-react";
 import { format } from "date-fns";
 import { User, Session } from "@supabase/supabase-js";
+
+type CallLanguage = "hindi" | "english" | "marathi";
 
 interface Inquiry {
   id: string;
@@ -266,6 +271,7 @@ const Admin = () => {
   };
 
   const [callingInquiryId, setCallingInquiryId] = useState<string | null>(null);
+  const [callLanguage, setCallLanguage] = useState<CallLanguage>("hindi");
 
   const handleInitiateCall = async (inquiry: Inquiry) => {
     try {
@@ -286,6 +292,7 @@ const Admin = () => {
             customerName: inquiry.name,
             preferredArea: inquiry.preferred_area,
             budget: inquiry.budget,
+            language: callLanguage,
           }),
         }
       );
@@ -296,9 +303,10 @@ const Admin = () => {
         throw new Error(data.error || "Failed to initiate call");
       }
 
+      const langLabels = { hindi: "Hindi", english: "English", marathi: "Marathi" };
       toast({
         title: "Call Initiated",
-        description: `AI agent is now calling ${inquiry.name}`,
+        description: `Purva is now calling ${inquiry.name} in ${langLabels[callLanguage]}`,
       });
     } catch (error: any) {
       toast({
@@ -378,10 +386,14 @@ const Admin = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-4xl grid-cols-6">
+          <TabsList className="grid w-full max-w-5xl grid-cols-7">
             <TabsTrigger value="inquiries" className="flex items-center gap-2">
               <Mail className="w-4 h-4" />
               Inquiries
+            </TabsTrigger>
+            <TabsTrigger value="appointments" className="flex items-center gap-2">
+              <CalendarCheck className="w-4 h-4" />
+              Appointments
             </TabsTrigger>
             <TabsTrigger value="properties" className="flex items-center gap-2">
               <Home className="w-4 h-4" />
@@ -497,7 +509,21 @@ const Admin = () => {
                   </Select>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  {/* Language Toggle for Calls */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg">
+                    <Languages className="w-4 h-4 text-muted-foreground" />
+                    <Select value={callLanguage} onValueChange={(v) => setCallLanguage(v as CallLanguage)}>
+                      <SelectTrigger className="w-28 h-8 border-0 bg-transparent">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hindi">हिंदी Hindi</SelectItem>
+                        <SelectItem value="english">English</SelectItem>
+                        <SelectItem value="marathi">मराठी Marathi</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Button variant="outline" onClick={fetchInquiries} disabled={isLoading}>
                     <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                     Refresh
@@ -641,6 +667,11 @@ const Admin = () => {
             <p className="text-center text-muted-foreground text-sm">
               Showing {filteredInquiries.length} of {inquiries.length} inquiries
             </p>
+          </TabsContent>
+
+          {/* Call Appointments Tab */}
+          <TabsContent value="appointments">
+            <CallAppointmentsTab />
           </TabsContent>
 
           {/* Properties Tab */}
