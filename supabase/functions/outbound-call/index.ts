@@ -302,8 +302,7 @@ serve(async (req) => {
           },
           voice: {
             provider: "11labs",
-            // Using "Devi" - Indian female voice from ElevenLabs
-            voiceId: "pFZP5JQG7iQjIQuC4Bku", // Lily - warm female voice, good for Indian accent
+            voiceId: "jUjRbhZWoMK4aDciW36V", // Custom Indian female voice
           },
           metadata: {
             inquiryId: inquiryId,
