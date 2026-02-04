@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
-const ELEVENLABS_VOICE_ID = "jUjRbhZWoMK4aDciW36V"; // Custom Indian female voice
+// Use a standard ElevenLabs voice that works on all plans
+// Jessica - warm female voice with Indian-friendly pronunciation
+const ELEVENLABS_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
 
 // Language configurations
 const languageConfig = {
@@ -153,7 +156,8 @@ serve(async (req) => {
       );
       
       if (!response.ok) {
-        console.error("ElevenLabs TTS error:", response.status);
+        const errorText = await response.text();
+        console.error("ElevenLabs TTS error:", response.status, errorText);
         return;
       }
       
@@ -164,8 +168,8 @@ serve(async (req) => {
         const { done, value } = await reader.read();
         if (done) break;
         
-        // Convert to base64 and send to Twilio
-        const base64Audio = btoa(String.fromCharCode(...value));
+        // Convert to base64 properly (avoid stack overflow with spread operator)
+        const base64Audio = base64Encode(value.buffer);
         
         ws.send(JSON.stringify({
           event: "media",
