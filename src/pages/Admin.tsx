@@ -25,10 +25,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import PropertyPhotoManager from "@/components/admin/PropertyPhotoManager";
 import PropertyManager from "@/components/admin/PropertyManager";
 import UserRoleManager from "@/components/admin/UserRoleManager";
-import AuditLogViewer from "@/components/admin/AuditLogViewer";
-import NotificationBell from "@/components/admin/NotificationBell";
-import NotificationPreferences from "@/components/admin/NotificationPreferences";
 import CallAppointmentsTab from "@/components/admin/CallAppointmentsTab";
+import SettingsTab from "@/components/admin/SettingsTab";
 import {
   Building2,
   LogOut,
@@ -45,9 +43,7 @@ import {
   ShieldAlert,
   Home,
   UserCog,
-  History,
   Settings,
-  PhoneCall,
   CalendarCheck,
   Languages,
 } from "lucide-react";
@@ -374,7 +370,6 @@ const Admin = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {role === "admin" && <NotificationBell />}
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Logout
@@ -386,7 +381,7 @@ const Admin = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-5xl grid-cols-7">
+          <TabsList className="grid w-full max-w-4xl grid-cols-6">
             <TabsTrigger value="inquiries" className="flex items-center gap-2">
               <Mail className="w-4 h-4" />
               Inquiries
@@ -407,12 +402,6 @@ const Admin = () => {
               <TabsTrigger value="users" className="flex items-center gap-2">
                 <UserCog className="w-4 h-4" />
                 Users
-              </TabsTrigger>
-            )}
-            {role === "admin" && (
-              <TabsTrigger value="audit" className="flex items-center gap-2">
-                <History className="w-4 h-4" />
-                Audit Logs
               </TabsTrigger>
             )}
             {role === "admin" && (
@@ -642,7 +631,7 @@ const Admin = () => {
                                 {callingInquiryId === inquiry.id ? (
                                   <RefreshCw className="w-4 h-4 animate-spin" />
                                 ) : (
-                                  <PhoneCall className="w-4 h-4" />
+                                  <Phone className="w-4 h-4" />
                                 )}
                               </Button>
                               <Button
@@ -691,17 +680,10 @@ const Admin = () => {
             </TabsContent>
           )}
 
-          {/* Audit Logs Tab - Admin Only */}
-          {role === "admin" && (
-            <TabsContent value="audit">
-              <AuditLogViewer />
-            </TabsContent>
-          )}
-
           {/* Settings Tab - Admin Only */}
           {role === "admin" && (
             <TabsContent value="settings">
-              <NotificationPreferences />
+              <SettingsTab />
             </TabsContent>
           )}
         </Tabs>

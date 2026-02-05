@@ -105,6 +105,39 @@ Schedule a property site visit. Keep responses concise.`,
 
     console.log(`Initiating VAPI outbound call to ${formattedPhone} in ${language}`);
 
+    // Create a call_appointment record BEFORE initiating the call
+    // This ensures the appointment shows up immediately in the admin panel
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && inquiryId) {
+      try {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        
+        // Insert the call appointment record
+        const { error: insertError } = await supabase
+          .from("call_appointments")
+          .insert({
+            inquiry_id: inquiryId,
+            customer_name: clientName,
+            customer_phone: formattedPhone,
+            property_location: preferredArea || null,
+            language: language,
+            status: "calling",
+            notes: `Call initiated to ${clientName} for ${preferredArea || "property inquiry"}. Budget: ${budget || "Not specified"}`,
+          });
+        
+        if (insertError) {
+          console.error("Error creating call appointment:", insertError);
+        } else {
+          console.log("Call appointment record created for inquiry:", inquiryId);
+        }
+      } catch (dbError) {
+        console.error("Database error:", dbError);
+      }
+    }
+
     // Make the outbound call using VAPI API
     const response = await fetch("https://api.vapi.ai/call/phone", {
       method: "POST",
@@ -134,9 +167,15 @@ Schedule a property site visit. Keep responses concise.`,
           voice: {
             provider: "11labs",
             voiceId: "cgSgspJ2msm6clMCkdW9", // Jessica - warm female voice
-            stability: 0.5,
-            similarityBoost: 0.75,
+            stability: 0.6, // Slightly higher for more consistent speech
+            similarityBoost: 0.8, // Higher voice consistency
+            style: 0.3, // Lower for more natural, less dramatic
+            useSpeakerBoost: true, // Clearer voice
           },
+          // Slower, more natural speech with pauses
+          silenceTimeoutSeconds: 20, // Wait longer for customer response
+          responseDelaySeconds: 0.8, // Small pause before responding (more natural)
+          numWordsToInterruptAssistant: 2, // Allow interruption naturally
         },
         metadata: {
           inquiryId: inquiryId || "",
